@@ -3,6 +3,7 @@ import io
 import xml.etree.ElementTree as ET
 import json
 import requests as rq
+from config import Config
 
 args = sys.argv
 valuta = {}
@@ -65,11 +66,12 @@ def main():
     info = io.open('info.txt', mode='w', encoding='utf-8')
     info.write(json.dumps(nomenk))
 
-    print('Done!')
+    print('Parsing done!')
 
-    r = rq.post('https://xn--e1amjcn.xn--p1ai/rest/integrationonec/info/', data={'test': 123, 'type': 'haha'})
-    print(r.status_code, r.reason)
-    print(r.text)
+    allDiscs = rq.post('https://xn--e1amjcn.xn--p1ai/rest/tcatalog/getDiscounts/',
+                       data={'auth': Config.authToken})
+    print(allDiscs.status_code, allDiscs.reason)
+    print(allDiscs.text[:300])
 
 
 if __name__ == '__main__':
