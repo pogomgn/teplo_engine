@@ -68,7 +68,7 @@ def main():
 
     print('Parsing done!')
 
-    allDiscs = rq.post('https://xn--e1amjcn.xn--p1ai/rest/tcatalog/getDiscounts/',
+    allDiscs = rq.post(Config.url + '/rest/tcatalog/getDiscounts/',
                        data={'auth': Config.authToken})
     print(allDiscs.status_code, allDiscs.reason)
     print(allDiscs.text[:300])
