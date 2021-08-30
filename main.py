@@ -3,12 +3,17 @@ import io
 import xml.etree.ElementTree as ET
 import json
 import requests as rq
+import time
 from config import Config
 
 args = sys.argv
 valuta = {}
 cenGruppi = {}
 nomenk = {}
+
+cenGruppi2 = {}
+nomenk2 = {}
+discType2 = {}
 
 
 def main():
@@ -47,6 +52,7 @@ def main():
     xmlNom = io.open("new/nom.xml", mode="r", encoding="utf-8")
     tmpstr = xmlNom.read()
     nomRoot = ET.fromstring(tmpstr)
+    prodsTotal1 = 0
     for child in nomRoot:
         tmpId = ''
         tmpName = ''
@@ -62,16 +68,80 @@ def main():
         if tmpCGId is not None and '' != tmpCGId and cenGruppi.get(tmpCGId) is not None:
             nomenk[tmpId]['cgid'] = tmpCGId
             nomenk[tmpId]['value'] = cenGruppi[tmpCGId]['value']
+            prodsTotal1 += 1
 
     info = io.open('info.txt', mode='w', encoding='utf-8')
     info.write(json.dumps(nomenk))
 
-    print('Parsing done!')
+    print('Parsing 1 done!')
+
+    xmlDiscounts2 = io.open("new/discounts2.xml", mode="r", encoding="utf-8")
+    tmpstr = xmlDiscounts2.read()
+    discounts2Root = ET.fromstring(tmpstr)
+    prodsTotal2 = 0
+    for child in discounts2Root:
+        tmpNomId = child[4].text
+        tmpNomName = child[5].text
+        tmpCGId = child[2].text
+        tmpCGName = child[3].text
+        tmpDiscId = child[0].text
+        tmpDiscName = child[1].text
+        tmpDiscValue = child[6].text
+
+        nomenk2[tmpNomId] = {'id': tmpNomId, 'name': tmpNomName}
+        if '6835f929-9b76-11e6-94dd-0025909b4565' == tmpDiscId:
+            nomenk2[tmpNomId]['value'] = tmpDiscValue
+            if tmpCGId is not None and '' != tmpCGId:
+                nomenk2[tmpNomId]['cgid'] = tmpCGId
+                if tmpCGId in cenGruppi2.keys():
+                    cenGruppi2[tmpCGId]['products'].append(tmpNomId)
+                    prodsTotal2 += 1
+                else:
+                    cenGruppi2[tmpCGId] = {'id': tmpCGId, 'name': tmpCGName, 'products': [tmpNomId]}
+                    prodsTotal2 += 1
+        if tmpDiscId is not None and '' != tmpDiscId:
+            discType2[tmpDiscId] = {'id': tmpDiscId, 'name': tmpDiscName}
+
+    print('Parsing 2 done!')
+
+    # print(discType2)
+    print('1', len(cenGruppi), prodsTotal1)
+    print('2', len(cenGruppi2), prodsTotal2)
 
     allDiscs = rq.post(Config.url + '/rest/tcatalog/getDiscounts/',
                        data={'auth': Config.authToken})
-    print(allDiscs.status_code, allDiscs.reason)
-    print(allDiscs.text[:300])
+    downDiscs = []
+    if 200 == allDiscs.status_code:
+        downDiscs = json.loads(allDiscs.text)
+    else:
+        time.sleep(300)
+        allDiscs = rq.post(Config.url + '/rest/tcatalog/getDiscounts/',
+                           data={'auth': Config.authToken})
+        if 200 == allDiscs.status_code:
+            downDiscs = json.loads(allDiscs.text)
+
+    if downDiscs == [] or downDiscs is None:
+        return
+        # TODO: telegram error message
+
+    guidToDel = []
+    guidToAdd = []
+
+    for cgDisc in downDiscs:  # цикл по выгруженным с сайта скидкам (1 скидка на ценовую группу)
+        if cgDisc['guid'] in cenGruppi2.keys():  # если скидка на сайте есть в выгрузке из 1с
+            diff = False
+            if len(cenGruppi2[cgDisc['guid']]['products']) == len(
+                    cgDisc['products']):  # совпадает количество товаров у скидки?
+                for prodId in cenGruppi2[cgDisc['guid']]['products']:
+                    diff = True
+            else:
+                diff = True
+            if diff:
+                guidToDel.append(cgDisc['id'])
+                guidToAdd.append(cgDisc['guid'])
+
+        else:
+            guidToDel.append(cgDisc['id'])
 
 
 if __name__ == '__main__':
