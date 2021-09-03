@@ -127,21 +127,37 @@ def main():
     guidToDel = []
     guidToAdd = []
 
-    for cgDisc in downDiscs:  # цикл по выгруженным с сайта скидкам (1 скидка на ценовую группу)
+    # print(cenGruppi2)
+    # print(downDiscs)
+
+    for cgDisc in downDiscs['data']:  # цикл по выгруженным с сайта скидкам (1 скидка на ценовую группу)
         if cgDisc['guid'] in cenGruppi2.keys():  # если скидка на сайте есть в выгрузке из 1с
             diff = False
+            print(len(cenGruppi2[cgDisc['guid']]['products']), '==', len(cgDisc['products']), end='')
             if len(cenGruppi2[cgDisc['guid']]['products']) == len(
                     cgDisc['products']):  # совпадает количество товаров у скидки?
-                for prodId in cenGruppi2[cgDisc['guid']]['products']:
+                equals = 0
+                for prodId in cenGruppi2[cgDisc['guid']]['products']:  # сопоставляем айди товаров в цикле
+                    print(prodId, 'in', cgDisc['products'][0])
+                    if prodId in cgDisc['products']:
+                        equals += 1
+                        continue
                     diff = True
+                print(' ! ', equals, end='')
             else:
                 diff = True
+            print('')
             if diff:
                 guidToDel.append(cgDisc['id'])
                 guidToAdd.append(cgDisc['guid'])
-
         else:
-            guidToDel.append(cgDisc['id'])
+            guidToDel.append(cgDisc['id'])  # к удалению скидки которых не в 1с
+
+    # for cg2 in cenGruppi2:  # цикл по скидкам из 1с
+    #     for cg1 in downDiscs['data']:
+    #         if cg2['id'] == cg1
+    # print('delete', len(guidToDel), guidToDel)
+    # print('add', len(guidToAdd), guidToAdd)
 
 
 if __name__ == '__main__':
