@@ -153,11 +153,52 @@ def main():
         else:
             guidToDel.append(cgDisc['id'])  # к удалению скидки которых не в 1с
 
-    # for cg2 in cenGruppi2:  # цикл по скидкам из 1с
-    #     for cg1 in downDiscs['data']:
-    #         if cg2['id'] == cg1
-    # print('delete', len(guidToDel), guidToDel)
-    # print('add', len(guidToAdd), guidToAdd)
+    guidsInDownload = map(lambda x: x['guid'], downDiscs['data'])
+    for cg2 in cenGruppi2:  # цикл по скидкам из 1с
+        if cg2['id'] not in guidsInDownload:
+            guidToDel.append(cg2['id'])
+            print('to delete:', cg2['id'])
+        # for cg1 in downDiscs['data']:
+        #     if cg2['id'] == cg1['guid']:
+        #         pass
+
+    guidErrorDelete = []
+    guidErrorAdd = []
+    for guid in guidToDel:
+        ans = json.loads(rq.post(Config.url + '/rest/tcatalog/deleteDiscount/',
+                                 data={'auth': Config.authToken, 'id': guid}).text)
+        if ans['result'] == 'error':
+            guidErrorDelete.append(guid)
+        time.sleep(2)
+
+    for guid in guidToAdd:
+        ans = json.loads(rq.post(Config.url + '/rest/tcatalog/addDiscount/',
+                                 data={'auth': Config.authToken, 'value': guid}).text)  # TODO: доделать данные
+        if ans['result'] == 'error':
+            guidErrorAdd.append(guid)
+        time.sleep(2)
+
+    while True:
+        if len(guidErrorDelete) == 0 and len(guidErrorAdd) == 0:
+            break
+        gD = guidErrorDelete[:]
+        gA = guidErrorAdd[:]
+        guidErrorDelete = []
+        guidErrorAdd = []
+
+        for guid in gD:
+            ans = json.loads(rq.post(Config.url + '/rest/tcatalog/deleteDiscount/',
+                                     data={'auth': Config.authToken, 'id': guid}).text)
+            if ans['result'] == 'error':
+                guidErrorDelete.append(guid)
+            time.sleep(2)
+
+        for guid in gA:
+            ans = json.loads(rq.post(Config.url + '/rest/tcatalog/addDiscount/',
+                                     data={'auth': Config.authToken, 'value': guid}).text)  # TODO: доделать данные
+            if ans['result'] == 'error':
+                guidErrorAdd.append(guid)
+            time.sleep(2)
 
 
 if __name__ == '__main__':
