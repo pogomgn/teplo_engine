@@ -138,7 +138,7 @@ def main():
                     cgDisc['products']):  # совпадает количество товаров у скидки?
                 equals = 0
                 for prodId in cenGruppi2[cgDisc['guid']]['products']:  # сопоставляем айди товаров в цикле
-                    print(prodId, 'in', cgDisc['products'][0])
+                    # print(prodId, 'in', cgDisc['products'][0])
                     if prodId in cgDisc['products']:
                         equals += 1
                         continue
