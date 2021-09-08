@@ -151,7 +151,7 @@ def main():
         else:
             guidToDel.append(cgDisc['id'])  # к удалению скидки которых нет в 1с
 
-    guidsInDownload = list(map(lambda x: x['guid'], downDiscs['data']))  # TODO: переработать отсюда
+    guidsInDownload = list(map(lambda x: x['guid'], downDiscs['data']))
     for cg2 in cenGruppi2:  # цикл по скидкам из 1с
         print('cg2[guid]', cg2)
         if cg2 not in guidsInDownload:
