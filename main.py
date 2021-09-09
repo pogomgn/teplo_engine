@@ -131,7 +131,7 @@ def main():
     for cgDiscGuid, cgDisc in downDiscs['data'].items():
         if cgDiscGuid in cenGruppi2.keys():  # если скидка на сайте есть в выгрузке из 1с
             diff = False
-            print(len(cenGruppi2[cgDisc['guid']]['products']), '==', len(cgDisc['products']), end='')
+            # print(len(cenGruppi2[cgDisc['guid']]['products']), '==', len(cgDisc['products']), end='')
             if len(cenGruppi2[cgDisc['guid']]['products']) == len(
                     cgDisc['products']):  # совпадает количество товаров у скидки?
                 equals = 0
@@ -141,22 +141,27 @@ def main():
                         equals += 1
                         continue
                     diff = True
-                print(' ! ', equals, end='')
+                # print(' ! ', equals, end='')
             else:
                 diff = True
-            print('')
+            # print('')
             if diff:
                 guidToDel.append(cgDisc['id'])
                 guidToAdd.append(cgDisc['guid'])
         else:
             guidToDel.append(cgDisc['id'])  # к удалению скидки которых нет в 1с
 
-    guidsInDownload = list(map(lambda x: x['guid'], downDiscs['data']))
+    # print(downDiscs['data'])
+    # for asd in downDiscs['data']:
+    #     print(asd)
+        # break
+
+    guidsInDownload = list(map(lambda x: downDiscs['data'][x]['guid'], downDiscs['data']))  # <<<<<<<<<<<<<<<<<
     for cg2 in cenGruppi2:  # цикл по скидкам из 1с
         print('cg2[guid]', cg2)
         if cg2 not in guidsInDownload:
-            print('to delete:', downDiscs['data'][0])
-            guidToDel.append(downDiscs['data'][cg2]['id'])
+            # print('to delete:', downDiscs['data'][cg2])
+            guidToAdd.append(cg2)
         # for cg1 in downDiscs['data']:
         #     if cg2['id'] == cg1['guid']:
         #         pass
@@ -164,21 +169,22 @@ def main():
     guidErrorDelete = []
     guidErrorAdd = []
     for guid in guidToDel:
-        ans = json.loads(rq.post(Config.url + '/rest/tcatalog/deleteDiscount/',
-                                 data={'auth': Config.authToken, 'id': guid}).text)
-        if ans['result'] == 'error':
-            guidErrorDelete.append(guid)
-        time.sleep(2)
+        print({'auth': Config.authToken, 'id': guid})
+        # ans = json.loads(rq.post(Config.url + '/rest/tcatalog/deleteDiscount/',
+        #                          data={'auth': Config.authToken, 'id': guid}).text)
+        # if ans['result'] == 'error':
+        #     guidErrorDelete.append(guid)
+        # time.sleep(2)
 
     for guid in guidToAdd:
         productString = ''
         for item in cenGruppi2[guid]['products']:
             productString += item + ','
         productString = productString[:-1]
-        print({'auth': Config.authToken, 'guid': guid, 'value': cenGruppi2[guid]['value'],
+        print({'auth': Config.authToken, 'guid': guid, 'value': cenGruppi2[guid]['id'],
                'name': cenGruppi2[guid]['name'], 'id': productString})
         # ans = json.loads(rq.post(Config.url + '/rest/tcatalog/addDiscount/',
-        #                          data={'auth': Config.authToken, 'guid': guid, 'value': cenGruppi2[guid]['value'],
+        #                          data={'auth': Config.authToken, 'guid': guid, 'value': cenGruppi2[guid]['id'],
         #                                'name': cenGruppi2[guid]['name'], 'id': productString}).text)
         # if ans['result'] == 'error':
         #     guidErrorAdd.append(guid)
