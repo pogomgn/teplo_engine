@@ -139,6 +139,8 @@ cython_debug/
 
 .idea/
 new/
+errorlog/
+uploadlog/
 config.py
 info.txt
 .gitignore

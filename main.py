@@ -1,9 +1,11 @@
 import sys
 import io
+import os
 import xml.etree.ElementTree as ET
 import json
 import requests as rq
 import time
+import datetime
 from config import Config
 
 args = sys.argv
@@ -17,7 +19,7 @@ discType2 = {}
 
 
 def main():
-    xmlCurrency = io.open("new/currency.xml", mode="r", encoding="utf-8")
+    xmlCurrency = io.open(Config.pathToFiles + "currency.xml", mode="r", encoding="utf-8")
     tmpstr = xmlCurrency.read()
     currencyRoot = ET.fromstring(tmpstr)
     for child in currencyRoot:
@@ -30,8 +32,7 @@ def main():
                 tmpValue = part.text
         valuta[tmpValuta] = tmpValue
 
-    # print(valuta)
-    xmlDiscounts = io.open("new/discounts.xml", mode="r", encoding="utf-8")
+    xmlDiscounts = io.open(Config.pathToFiles + "discounts.xml", mode="r", encoding="utf-8")
     tmpstr = xmlDiscounts.read()
     discountsRoot = ET.fromstring(tmpstr)
     for child in discountsRoot:
@@ -47,9 +48,7 @@ def main():
                 tmpValue = part.text
         cenGruppi[tmpId] = {'id': tmpId, 'name': tmpName, 'value': tmpValue}
 
-    # print(cenGruppi)
-
-    xmlNom = io.open("new/nom.xml", mode="r", encoding="utf-8")
+    xmlNom = io.open(Config.pathToFiles + "nom.xml", mode="r", encoding="utf-8")
     tmpstr = xmlNom.read()
     nomRoot = ET.fromstring(tmpstr)
     prodsTotal1 = 0
@@ -73,7 +72,7 @@ def main():
     info = io.open('info.txt', mode='w', encoding='utf-8')
     info.write(json.dumps(nomenk))
 
-    xmlDiscounts2 = io.open("new/discounts2.xml", mode="r", encoding="utf-8")
+    xmlDiscounts2 = io.open(Config.pathToFiles + "discounts2.xml", mode="r", encoding="utf-8")
     tmpstr = xmlDiscounts2.read()
     discounts2Root = ET.fromstring(tmpstr)
     prodsTotal2 = 0
@@ -101,15 +100,14 @@ def main():
         if tmpDiscId is not None and '' != tmpDiscId:
             discType2[tmpDiscId] = {'id': tmpDiscId, 'name': tmpDiscName}
 
-    print('1', len(cenGruppi), prodsTotal1)
-    print('2', len(cenGruppi2), prodsTotal2)
-
+    log('upload', 'Parsed: ' + str(len(cenGruppi2)) + ' discounts + ' + str(prodsTotal2) + ' products.')
     allDiscs = rq.post(Config.url + '/rest/tcatalog/getDiscounts/',
                        data={'auth': Config.authToken})
     downDiscs = []
     if 200 == allDiscs.status_code:
         downDiscs = json.loads(allDiscs.text)
     else:
+        log('error', 'Cant get discounts. Attempt 2.')
         time.sleep(300)
         allDiscs = rq.post(Config.url + '/rest/tcatalog/getDiscounts/',
                            data={'auth': Config.authToken})
@@ -117,6 +115,7 @@ def main():
             downDiscs = json.loads(allDiscs.text)
 
     if downDiscs == [] or downDiscs is None:
+        log('error', 'Cant get discounts. Exiting.')
         return
         # TODO: telegram error message
 
@@ -127,20 +126,16 @@ def main():
     for cgDiscGuid, cgDisc in downDiscs['data'].items():
         if cgDiscGuid in cenGruppi2.keys():  # если скидка на сайте есть в выгрузке из 1с
             diff = False
-            # print(len(cenGruppi2[cgDisc['guid']]['products']), '==', len(cgDisc['products']), end='')
             if len(cenGruppi2[cgDisc['guid']]['products']) == len(
                     cgDisc['products']):  # совпадает количество товаров у скидки?
                 equals = 0
                 for prodId in cenGruppi2[cgDisc['guid']]['products']:  # сопоставляем айди товаров в цикле
-                    # print(prodId, 'in', cgDisc['products'][0])
                     if prodId in cgDisc['products']:
                         equals += 1
                         continue
                     diff = True
-                # print(' ! ', equals, end='')
             else:
                 diff = True
-            # print('')
             if diff:
                 guidToDel.append(cgDisc['id'])
                 guidToAdd.append(cgDisc['guid'])
@@ -154,18 +149,27 @@ def main():
 
     guidErrorDelete = []
     guidErrorAdd = []
-    print('guidToDel:', len(guidToDel))
-    print('guidToAdd:', len(guidToAdd))
+    log('upload', 'Discs to delete:' + str(len(guidToDel)) + ', Discs to add:' + str(len(guidToAdd)))
     i = 0
     for guid in guidToDel:
         i += 1
-        print(i, {'auth': Config.authToken, 'id': guid})
-        ans = json.loads(rq.post(Config.url + '/rest/tcatalog/deleteDiscount/',
-                                 data={'auth': Config.authToken, 'id': guid}).text)
-        if ans['result'] == 'error':
+        # print(i, {'auth': Config.authToken, 'id': guid})
+        resp = ''
+        try:
+            resp = rq.post(Config.url + '/rest/tcatalog/deleteDiscount/',
+                           data={'auth': Config.authToken, 'id': guid}).text
+        except rq.exceptions:
+            log('error', 'Cant delete discount: ' + guid)
+        ans = {}
+        try:
+            ans = json.loads(resp)
+        except json.JSONDecodeError:
+            log('error', 'Error deleting discount: ' + guid + '\n\tresponse: ' + resp)
+            ans['result'] = 'error'
+
+        if resp == '' or ans == {} or ans['result'] == 'error':
             guidErrorDelete.append(guid)
-        time.sleep(1)
-        # break
+        time.sleep(Config.deleteTimeout)
 
     i = 0
     for guid in guidToAdd:
@@ -174,15 +178,27 @@ def main():
         for item in cenGruppi2[guid]['products']:
             productString += item + ','
         productString = productString[:-1]
-        print(i, {'auth': Config.authToken, 'guid': guid, 'value': cenGruppi2[guid]['value'],
-               'name': cenGruppi2[guid]['name'], 'id': len(productString)})
-        ans = json.loads(rq.post(Config.url + '/rest/tcatalog/addDiscount/',
-                                 data={'auth': Config.authToken, 'guid': guid, 'value': cenGruppi2[guid]['value'],
-                                       'name': cenGruppi2[guid]['name'], 'id': productString}).text)
-        if ans['result'] == 'error':
+        # print(i, {'auth': Config.authToken, 'guid': guid, 'value': cenGruppi2[guid]['value'],
+        #           'name': cenGruppi2[guid]['name'], 'id': len(productString)})
+        resp = ''
+        try:
+            resp = rq.post(Config.url + '/rest/tcatalog/addDiscount/',
+                           data={'auth': Config.authToken, 'guid': guid, 'value': cenGruppi2[guid]['value'],
+                                 'name': cenGruppi2[guid]['name'], 'id': productString}).text
+        except rq.exceptions:
+            log('error', 'Cant add discount: ' + guid)
+
+        ans = {}
+        try:
+            ans = json.loads(resp)
+        except json.JSONDecodeError:
+            log('error', 'Error adding discount: ' + guid + ' Value: ' + cenGruppi2[guid]['value'] + ' Name: ' +
+                cenGruppi2[guid]['name'] + ' Products: ' + productString + '\n\tresponse: ' + resp)
+            ans['result'] = 'error'
+
+        if resp == '' or ans == {} or ans['result'] == 'error':
             guidErrorAdd.append(guid)
-        time.sleep(2)
-        # break
+        time.sleep(Config.addTimeout)
 
     # while True:
     #     if len(guidErrorDelete) == 0 and len(guidErrorAdd) == 0:
@@ -207,5 +223,21 @@ def main():
     #         time.sleep(2)
 
 
+def log(pref, mess, new=True):
+    directory = pref + 'log/'
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    dt = datetime.date.today().strftime('%Y_%m_%d')
+    hdl = open(directory + dt + '_log.txt', 'a')
+    dt = datetime.datetime.now().strftime('%H:%M:%S')
+    if new:
+        hdl.write(dt + ' ' + mess + '\n')
+    else:
+        hdl.write(mess)
+    hdl.close()
+
+
 if __name__ == '__main__':
+    log('upload', 'Start upload discounts.')
     main()
+    log('upload', 'End upload discounts.\n')
