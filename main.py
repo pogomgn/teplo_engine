@@ -73,8 +73,6 @@ def main():
     info = io.open('info.txt', mode='w', encoding='utf-8')
     info.write(json.dumps(nomenk))
 
-    print('Parsing 1 done!')
-
     xmlDiscounts2 = io.open("new/discounts2.xml", mode="r", encoding="utf-8")
     tmpstr = xmlDiscounts2.read()
     discounts2Root = ET.fromstring(tmpstr)
@@ -97,14 +95,12 @@ def main():
                     cenGruppi2[tmpCGId]['products'].append(tmpNomId)
                     prodsTotal2 += 1
                 else:
-                    cenGruppi2[tmpCGId] = {'id': tmpCGId, 'name': tmpCGName, 'products': [tmpNomId]}
+                    cenGruppi2[tmpCGId] = {'id': tmpCGId, 'name': tmpCGName, 'products': [tmpNomId],
+                                           'value': tmpDiscValue}
                     prodsTotal2 += 1
         if tmpDiscId is not None and '' != tmpDiscId:
             discType2[tmpDiscId] = {'id': tmpDiscId, 'name': tmpDiscName}
 
-    print('Parsing 2 done!')
-
-    # print(discType2)
     print('1', len(cenGruppi), prodsTotal1)
     print('2', len(cenGruppi2), prodsTotal2)
 
@@ -151,44 +147,42 @@ def main():
         else:
             guidToDel.append(cgDisc['id'])  # к удалению скидки которых нет в 1с
 
-    # print(downDiscs['data'])
-    # for asd in downDiscs['data']:
-    #     print(asd)
-        # break
-
-    guidsInDownload = list(map(lambda x: downDiscs['data'][x]['guid'], downDiscs['data']))  # <<<<<<<<<<<<<<<<<
+    guidsInDownload = list(map(lambda x: downDiscs['data'][x]['guid'], downDiscs['data']))
     for cg2 in cenGruppi2:  # цикл по скидкам из 1с
-        print('cg2[guid]', cg2)
         if cg2 not in guidsInDownload:
-            # print('to delete:', downDiscs['data'][cg2])
             guidToAdd.append(cg2)
-        # for cg1 in downDiscs['data']:
-        #     if cg2['id'] == cg1['guid']:
-        #         pass
 
     guidErrorDelete = []
     guidErrorAdd = []
+    print('guidToDel:', len(guidToDel))
+    print('guidToAdd:', len(guidToAdd))
+    i = 0
     for guid in guidToDel:
-        print({'auth': Config.authToken, 'id': guid})
-        # ans = json.loads(rq.post(Config.url + '/rest/tcatalog/deleteDiscount/',
-        #                          data={'auth': Config.authToken, 'id': guid}).text)
-        # if ans['result'] == 'error':
-        #     guidErrorDelete.append(guid)
-        # time.sleep(2)
+        i += 1
+        print(i, {'auth': Config.authToken, 'id': guid})
+        ans = json.loads(rq.post(Config.url + '/rest/tcatalog/deleteDiscount/',
+                                 data={'auth': Config.authToken, 'id': guid}).text)
+        if ans['result'] == 'error':
+            guidErrorDelete.append(guid)
+        time.sleep(1)
+        # break
 
+    i = 0
     for guid in guidToAdd:
+        i += 1
         productString = ''
         for item in cenGruppi2[guid]['products']:
             productString += item + ','
         productString = productString[:-1]
-        print({'auth': Config.authToken, 'guid': guid, 'value': cenGruppi2[guid]['id'],
-               'name': cenGruppi2[guid]['name'], 'id': productString})
-        # ans = json.loads(rq.post(Config.url + '/rest/tcatalog/addDiscount/',
-        #                          data={'auth': Config.authToken, 'guid': guid, 'value': cenGruppi2[guid]['id'],
-        #                                'name': cenGruppi2[guid]['name'], 'id': productString}).text)
-        # if ans['result'] == 'error':
-        #     guidErrorAdd.append(guid)
-        # time.sleep(2)
+        print(i, {'auth': Config.authToken, 'guid': guid, 'value': cenGruppi2[guid]['value'],
+               'name': cenGruppi2[guid]['name'], 'id': len(productString)})
+        ans = json.loads(rq.post(Config.url + '/rest/tcatalog/addDiscount/',
+                                 data={'auth': Config.authToken, 'guid': guid, 'value': cenGruppi2[guid]['value'],
+                                       'name': cenGruppi2[guid]['name'], 'id': productString}).text)
+        if ans['result'] == 'error':
+            guidErrorAdd.append(guid)
+        time.sleep(2)
+        # break
 
     # while True:
     #     if len(guidErrorDelete) == 0 and len(guidErrorAdd) == 0:
