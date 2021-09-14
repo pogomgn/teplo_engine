@@ -116,6 +116,7 @@ def main():
 
     if downDiscs == [] or downDiscs is None:
         log('error', 'Cant get discounts. Exiting.')
+        sendMess('no%20connection.%20Exit.')
         return
         # TODO: telegram error message
 
@@ -147,6 +148,9 @@ def main():
         if cg2 not in guidsInDownload:
             guidToAdd.append(cg2)
 
+    errorNumber = 0
+    addNumber = 0
+    deleteNumber = 0
     guidErrorDelete = []
     guidErrorAdd = []
     log('upload', 'Discs to delete:' + str(len(guidToDel)) + ', Discs to add:' + str(len(guidToAdd)))
@@ -159,16 +163,21 @@ def main():
             resp = rq.post(Config.url + '/rest/tcatalog/deleteDiscount/',
                            data={'auth': Config.authToken, 'id': guid}).text
         except rq.exceptions:
+            errorNumber += 1
             log('error', 'Cant delete discount: ' + guid)
         ans = {}
         try:
             ans = json.loads(resp)
         except json.JSONDecodeError:
+            errorNumber += 1
             log('error', 'Error deleting discount: ' + guid + '\n\tresponse: ' + resp)
             ans['result'] = 'error'
 
         if resp == '' or ans == {} or ans['result'] == 'error':
+            errorNumber += 1
             guidErrorDelete.append(guid)
+        else:
+            deleteNumber += 1
         time.sleep(Config.deleteTimeout)
 
     i = 0
@@ -186,20 +195,26 @@ def main():
                            data={'auth': Config.authToken, 'guid': guid, 'value': cenGruppi2[guid]['value'],
                                  'name': cenGruppi2[guid]['name'], 'id': productString}).text
         except rq.exceptions:
+            errorNumber += 1
             log('error', 'Cant add discount: ' + guid)
 
         ans = {}
         try:
             ans = json.loads(resp)
         except json.JSONDecodeError:
+            errorNumber += 1
             log('error', 'Error adding discount: ' + guid + ' Value: ' + cenGruppi2[guid]['value'] + ' Name: ' +
                 cenGruppi2[guid]['name'] + ' Products: ' + productString + '\n\tresponse: ' + resp)
             ans['result'] = 'error'
 
         if resp == '' or ans == {} or ans['result'] == 'error':
+            errorNumber += 1
             guidErrorAdd.append(guid)
+        else:
+            addNumber += 1
         time.sleep(Config.addTimeout)
 
+    sendMess(f'added:%20{addNumber}%20deleted:%20{deleteNumber}%20errors:%20{errorNumber}')
     # while True:
     #     if len(guidErrorDelete) == 0 and len(guidErrorAdd) == 0:
     #         break
@@ -213,14 +228,14 @@ def main():
     #                                  data={'auth': Config.authToken, 'id': guid}).text)
     #         if ans['result'] == 'error':
     #             guidErrorDelete.append(guid)
-    #         time.sleep(2)
+    #         time.sleep(Config.deleteTimeout)
     #
     #     for guid in gA:
     #         ans = json.loads(rq.post(Config.url + '/rest/tcatalog/addDiscount/',
     #                                  data={'auth': Config.authToken, 'value': guid}).text)  # TODO: доделать данные
     #         if ans['result'] == 'error':
     #             guidErrorAdd.append(guid)
-    #         time.sleep(2)
+    #         time.sleep(Config.addTimeout)
 
 
 def log(pref, mess, new=True):
@@ -235,6 +250,12 @@ def log(pref, mess, new=True):
     else:
         hdl.write(mess)
     hdl.close()
+
+
+def sendMess(mess):
+    msg = 'https://api.telegram.org/bot' + Config.tgToken + '/sendMessage?chat_id='
+    msg += Config.tgChatId + '&parse_mode=Markdown&text=[PyUpload]%20' + mess
+    rq.get(msg)
 
 
 if __name__ == '__main__':
