@@ -6,6 +6,7 @@ import json
 import requests as rq
 import time
 import datetime
+from urllib.parse import quote
 from config import Config
 
 args = sys.argv
@@ -116,7 +117,7 @@ def main():
 
     if downDiscs == [] or downDiscs is None:
         log('error', 'Cant get discounts. Exiting.')
-        sendMess('no%20connection.%20Exit.')
+        sendMess('no connection. Exit.')
         return
         # TODO: telegram error message
 
@@ -214,7 +215,7 @@ def main():
             addNumber += 1
         time.sleep(Config.addTimeout)
 
-    sendMess(f'added:%20{addNumber}%20deleted:%20{deleteNumber}%20errors:%20{errorNumber}')
+    sendMess(f'added: {addNumber} deleted: {deleteNumber} errors: {errorNumber}')
     # while True:
     #     if len(guidErrorDelete) == 0 and len(guidErrorAdd) == 0:
     #         break
@@ -254,7 +255,8 @@ def log(pref, mess, new=True):
 
 def sendMess(mess):
     msg = 'https://api.telegram.org/bot' + Config.tgToken + '/sendMessage?chat_id='
-    msg += Config.tgChatId + '&parse_mode=Markdown&text=[PyUpload]%20' + mess
+    msg += Config.tgChatId + '&parse_mode=Markdown&text=[PyUpload] ' + mess
+    msg = quote(msg)
     rq.get(msg)
 
 
