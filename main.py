@@ -119,17 +119,21 @@ def main():
         log('error', 'Cant get discounts. Exiting.')
         sendMess('no connection. Exit.')
         return
-        # TODO: telegram error message
+
+    ldown = io.open('ldown.txt', mode='w', encoding='utf-8')
+    ldown.write(json.dumps(downDiscs))
 
     guidToDel = []
     guidToAdd = []
 
     # цикл по выгруженным с сайта скидкам (1 скидка на ценовую группу)
     for cgDiscGuid, cgDisc in downDiscs['data'].items():
+        log('test', cgDiscGuid + ' ' + str(len(cgDisc['products'])) + ' val: ' + cgDisc['value'])
         if cgDiscGuid in cenGruppi2.keys():  # если скидка на сайте есть в выгрузке из 1с
             diff = False
+            # совпадает количество товаров и размер у скидки?
             if len(cenGruppi2[cgDisc['guid']]['products']) == len(
-                    cgDisc['products']):  # совпадает количество товаров у скидки?
+                    cgDisc['products']) and cgDisc['value'] == cenGruppi2[cgDisc['guid']]['value']:
                 equals = 0
                 for prodId in cenGruppi2[cgDisc['guid']]['products']:  # сопоставляем айди товаров в цикле
                     if prodId in cgDisc['products']:
@@ -158,7 +162,6 @@ def main():
     i = 0
     for guid in guidToDel:
         i += 1
-        # print(i, {'auth': Config.authToken, 'id': guid})
         resp = ''
         try:
             resp = rq.post(Config.url + '/rest/tcatalog/deleteDiscount/',
@@ -188,8 +191,6 @@ def main():
         for item in cenGruppi2[guid]['products']:
             productString += item + ','
         productString = productString[:-1]
-        # print(i, {'auth': Config.authToken, 'guid': guid, 'value': cenGruppi2[guid]['value'],
-        #           'name': cenGruppi2[guid]['name'], 'id': len(productString)})
         resp = ''
         try:
             resp = rq.post(Config.url + '/rest/tcatalog/addDiscount/',
@@ -255,8 +256,7 @@ def log(pref, mess, new=True):
 
 def sendMess(mess):
     msg = 'https://api.telegram.org/bot' + Config.tgToken + '/sendMessage?chat_id='
-    msg += Config.tgChatId + '&parse_mode=Markdown&text=[PyUpload] ' + mess
-    msg = quote(msg)
+    msg += Config.tgChatId + '&parse_mode=Markdown&text=' + quote('[PyUpload] ' + mess)
     rq.get(msg)
 
 
