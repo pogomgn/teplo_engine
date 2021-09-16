@@ -127,26 +127,27 @@ def main():
     guidToAdd = []
 
     # цикл по выгруженным с сайта скидкам (1 скидка на ценовую группу)
-    for cgDiscGuid, cgDisc in downDiscs['data'].items():
-        log('test', cgDiscGuid + ' ' + str(len(cgDisc['products'])) + ' val: ' + cgDisc['value'])
-        if cgDiscGuid in cenGruppi2.keys():  # если скидка на сайте есть в выгрузке из 1с
-            diff = False
-            # совпадает количество товаров и размер у скидки?
-            if len(cenGruppi2[cgDisc['guid']]['products']) == len(
-                    cgDisc['products']) and cgDisc['value'] == cenGruppi2[cgDisc['guid']]['value']:
-                equals = 0
-                for prodId in cenGruppi2[cgDisc['guid']]['products']:  # сопоставляем айди товаров в цикле
-                    if prodId in cgDisc['products']:
-                        equals += 1
-                        continue
+    if downDiscs['discounts'] > 0:
+        for cgDiscGuid, cgDisc in downDiscs['data'].items():
+            log('test', cgDiscGuid + ' ' + str(len(cgDisc['products'])) + ' val: ' + cgDisc['value'])
+            if cgDiscGuid in cenGruppi2.keys():  # если скидка на сайте есть в выгрузке из 1с
+                diff = False
+                # совпадает количество товаров и размер у скидки?
+                if len(cenGruppi2[cgDisc['guid']]['products']) == len(
+                        cgDisc['products']) and cgDisc['value'] == cenGruppi2[cgDisc['guid']]['value']:
+                    equals = 0
+                    for prodId in cenGruppi2[cgDisc['guid']]['products']:  # сопоставляем айди товаров в цикле
+                        if prodId in cgDisc['products']:
+                            equals += 1
+                            continue
+                        diff = True
+                else:
                     diff = True
+                if diff:
+                    guidToDel.append(cgDisc['id'])
+                    guidToAdd.append(cgDisc['guid'])
             else:
-                diff = True
-            if diff:
-                guidToDel.append(cgDisc['id'])
-                guidToAdd.append(cgDisc['guid'])
-        else:
-            guidToDel.append(cgDisc['id'])  # к удалению скидки которых нет в 1с
+                guidToDel.append(cgDisc['id'])  # к удалению скидки которых нет в 1с
 
     guidsInDownload = list(map(lambda x: downDiscs['data'][x]['guid'], downDiscs['data']))
     for cg2 in cenGruppi2:  # цикл по скидкам из 1с
