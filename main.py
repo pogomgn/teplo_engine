@@ -14,24 +14,265 @@ valuta = {}
 cenGruppi = {}
 nomenk = {}
 
+utochneniya = []
+prices = []
+
 cenGruppi2 = {}
 nomenk2 = {}
 discType2 = {}
 
 
-def main():
+def loadUtochneniya():
+    try:
+        resp = rq.post(Config.url + '/rest/personal/resetUtoch/',
+                       data={'auth': Config.authToken}).text
+        print(resp)
+    except rq.exceptions:
+        log('error', 'Cant reset prices.')
+
+    xmlUtochneniya = io.open(Config.pathToFiles + "utochneniya.xml", mode="r", encoding="utf-8")
+    tmpstr = xmlUtochneniya.read()
+    xmlUtochneniyaRoot = ET.fromstring(tmpstr)
+    vidCeni = {}
+    soglasheniya = {}
+    for child in xmlUtochneniyaRoot:
+        tmp1, tmp2, tmp3, tmp4, tmp5, tmp6, tmp7 = '', '', '', '', '', '', ''
+        for part in child:
+            if 'ИдСоглашения' == part.tag:
+                tmp1 = part.text
+            if 'ИдВидЦены' == part.tag:
+                tmp2 = part.text
+            if 'ИдЦеноваяГруппа' == part.tag:
+                tmp3 = part.text
+            if 'ЗначениеПроцентРучнойСкидки' == part.tag:
+                tmp4 = part.text
+            if 'ЗначениеПроцентРучнойНаценки' == part.tag:
+                tmp5 = part.text
+            if 'НаименованиеВидЦены' == part.tag:
+                tmp6 = part.text
+            if 'НаименованиеСоглашения' == part.tag:
+                tmp7 = part.text
+        utochneniya.append(
+            {'UF_SOGLASHENIE_ID': tmp1, 'UF_VID_CENI_ID': tmp2, 'UF_CEN_GRUPPA_ID': tmp3, 'UF_SKIDKA_PERCENT': tmp4,
+             'UF_NACENKA_PERCENT': tmp5})
+        vidCeni[tmp2] = {'UF_VID_CENI_ID': tmp2, 'UF_VID_CENI_NAME': tmp6}
+        soglasheniya[tmp1] = {'UF_SOGL_ID': tmp1, 'UF_SOGL_NAME': tmp7}
+    try:
+        resp = rq.post(Config.url + '/rest/personal/resetSogl/',
+                       data={'auth': Config.authToken}).text
+        print(resp)
+    except rq.exceptions:
+        log('error', 'Cant reset sogl.')
+    try:
+        resp = rq.post(Config.url + '/rest/personal/addSogl/',
+                       data={'auth': Config.authToken, 'data': json.dumps(soglasheniya)}).text
+        print(resp)
+    except rq.exceptions:
+        log('error', 'Cant add sogl.')
+    try:
+        resp = rq.post(Config.url + '/rest/personal/resetVidCeni/',
+                       data={'auth': Config.authToken}).text
+        print(resp)
+    except rq.exceptions:
+        log('error', 'Cant reset vidCeni.')
+    try:
+        resp = rq.post(Config.url + '/rest/personal/addVidCeni/',
+                       data={'auth': Config.authToken, 'data': json.dumps(vidCeni)}).text
+        print(resp)
+    except rq.exceptions:
+        log('error', 'Cant add vidCeni.')
+    utoch_i = 1
+    page_i = 1
+    utochToSend = []
+    for utoch in utochneniya:
+        utochToSend.append(utoch)
+        if utoch_i == 1000:
+            utoch_i = 0
+            try:
+                resp = rq.post(Config.url + '/rest/personal/addUtoch/',
+                               data={'auth': Config.authToken, 'data': json.dumps(utochToSend)}).text
+                print(resp, page_i)
+                page_i += 1
+            except rq.exceptions:
+                log('error', 'Cant add utoch.')
+            utochToSend = []
+            time.sleep(Config.deleteTimeout)
+        utoch_i += 1
+    try:
+        resp = rq.post(Config.url + '/rest/personal/addUtoch/',
+                       data={'auth': Config.authToken, 'data': json.dumps(utochToSend)}).text
+        print(resp)
+    except rq.exceptions:
+        log('error', 'Cant add utoch.')
+
+
+def loadPrices():
+    xmlPrices = io.open(Config.pathToFiles + "prices.xml", mode="r", encoding="utf-8")
+    tmpstr = xmlPrices.read()
+    pricesRoot = ET.fromstring(tmpstr)
+    for child in pricesRoot:
+        tmp1, tmp2, tmp3, tmp4 = '', '', '', ''
+        for part in child:
+            if 'ИдВалюты' == part.tag:
+                tmp1 = part.text
+            if 'ИдВидЦены' == part.tag:
+                tmp2 = part.text
+            if 'ИдНоменклатура' == part.tag:
+                tmp3 = part.text
+            if 'ЗначениеЦены' == part.tag:
+                tmp4 = part.text
+        prices.append({'UF_VALUTA_ID': tmp1, 'UF_VID_CENI_ID': tmp2, 'UF_TOVAR_ID': tmp3, 'UF_PRICE': tmp4})
+
+    try:
+        resp = rq.post(Config.url + '/rest/personal/resetPrices/',
+                       data={'auth': Config.authToken}).text
+        print(resp)
+    except rq.exceptions:
+        log('error', 'Cant reset prices.')
+    price_i = 1
+    page_i = 1
+    priceToSend = []
+    for price in prices:
+        priceToSend.append(price)
+        if price_i == 1000:
+            price_i = 0
+            try:
+                resp = rq.post(Config.url + '/rest/personal/addPrices/',
+                               data={'auth': Config.authToken, 'data': json.dumps(priceToSend)}).text
+                print(resp, page_i)
+                page_i += 1
+            except rq.exceptions:
+                log('error', 'Cant add prices.')
+            priceToSend = []
+            # time.sleep(Config.deleteTimeout)
+            # break
+        price_i += 1
+    try:
+        resp = rq.post(Config.url + '/rest/personal/addPrices/',
+                       data={'auth': Config.authToken, 'data': json.dumps(priceToSend)}).text
+        print(resp)
+    except rq.exceptions:
+        log('error', 'Cant add prices.')
+
+
+def loadValuta():
     xmlCurrency = io.open(Config.pathToFiles + "currency.xml", mode="r", encoding="utf-8")
     tmpstr = xmlCurrency.read()
     currencyRoot = ET.fromstring(tmpstr)
     for child in currencyRoot:
         tmpValuta = ''
         tmpValue = ''
+        tmpName = ''
         for part in child:
             if 'ИдВалюта' == part.tag:
                 tmpValuta = part.text
             if 'Курс' == part.tag:
                 tmpValue = part.text
-        valuta[tmpValuta] = tmpValue
+            if 'Валюта' == part.tag:
+                tmpName = part.text
+        valuta[tmpValuta] = {'UF_VALUTA_ID': tmpValuta, 'UF_VALUTA_KURS': tmpValue, 'UF_VALUTA_NAME': tmpName}
+    try:
+        resp = rq.post(Config.url + '/rest/personal/resetValuta/',
+                       data={'auth': Config.authToken}).text
+        print(resp)
+    except rq.exceptions:
+        log('error', 'Cant reset valuta.')
+    try:
+        resp = rq.post(Config.url + '/rest/personal/addValuta/',
+                       data={'auth': Config.authToken, 'data': json.dumps(valuta)}).text
+        print(resp)
+    except rq.exceptions:
+        log('error', 'Cant add valuta.')
+
+
+def loadDiscounts2():
+    discs2 = []
+    cenGrToSend = {}
+    users = {}
+    xmlDisc = io.open(Config.pathToFiles + "discounts2.xml", mode="r", encoding="utf-8")
+    tmpstr = xmlDisc.read()
+    discRoot = ET.fromstring(tmpstr)
+    for child in discRoot:
+        tmp1, tmp2, tmp3, tmp4, tmp5, tmp6 = '', '', '', '', '', ''
+        for part in child:
+            if 'ИдСкидки' == part.tag:
+                tmp1 = part.text
+            if 'НаименованиеСкидки' == part.tag:
+                tmp2 = part.text
+            if 'ИдЦеноваяГруппа' == part.tag:
+                tmp3 = part.text
+            if 'НаименованиеЦеноваяГруппа' == part.tag:
+                tmp4 = part.text
+            if 'ИдНоменклатура' == part.tag:
+                tmp5 = part.text
+            if 'ЗначениеСкидкиНаценки' == part.tag:
+                tmp6 = part.text
+        users[tmp1] = {'UF_USER_ID': tmp1, 'UF_USER_NAME': tmp2}
+        cenGrToSend[tmp3] = {'UF_CEN_GRUPPA_ID': tmp3, 'UF_CEN_GRUPPA_NAME': tmp4}
+        discs2.append({'UF_SKIDKA_ID': tmp1, 'UF_CEN_GRUPPA_ID': tmp3, 'UF_TOVAR_ID': tmp5,
+                       'UF_SKIDKA_VALUE': tmp6})
+    try:
+        resp = rq.post(Config.url + '/rest/personal/resetUsers/',
+                       data={'auth': Config.authToken}).text
+        print(resp)
+    except rq.exceptions:
+        log('error', 'Cant reset users.')
+    try:
+        resp = rq.post(Config.url + '/rest/personal/addUsers/',
+                       data={'auth': Config.authToken, 'data': json.dumps(users)}).text
+        print(resp)
+    except rq.exceptions:
+        log('error', 'Cant add users.')
+    try:
+        resp = rq.post(Config.url + '/rest/personal/resetCenGruppi/',
+                       data={'auth': Config.authToken}).text
+        print(resp)
+    except rq.exceptions:
+        log('error', 'Cant reset cen gruppi.')
+    try:
+        resp = rq.post(Config.url + '/rest/personal/addCenGruppi/',
+                       data={'auth': Config.authToken, 'data': json.dumps(cenGrToSend)}).text
+        print(resp)
+    except rq.exceptions:
+        log('error', 'Cant add cen gruppi.')
+    try:
+        resp = rq.post(Config.url + '/rest/personal/resetSkidki/',
+                       data={'auth': Config.authToken}).text
+        print(resp)
+    except rq.exceptions:
+        log('error', 'Cant reset skidki.')
+    discToSend = []
+    disc_i = 1
+    page_i = 1
+    for disc2 in discs2:
+        discToSend.append(disc2)
+        if disc_i == 1000:
+            disc_i = 0
+            try:
+                resp = rq.post(Config.url + '/rest/personal/addSkidki/',
+                               data={'auth': Config.authToken, 'data': json.dumps(discToSend)}).text
+                print(resp, page_i)
+                page_i += 1
+            except rq.exceptions:
+                log('error', 'Cant add prices.')
+            discToSend = []
+            time.sleep(Config.deleteTimeout)
+        disc_i += 1
+    try:
+        resp = rq.post(Config.url + '/rest/personal/addSkidki/',
+                       data={'auth': Config.authToken, 'data': json.dumps(discToSend)}).text
+        print(resp)
+    except rq.exceptions:
+        log('error', 'Cant add skidki.')
+
+
+def main():
+    loadValuta()
+    loadUtochneniya()
+    loadDiscounts2()
+    loadPrices()
+
+    return
 
     xmlDiscounts = io.open(Config.pathToFiles + "discounts.xml", mode="r", encoding="utf-8")
     tmpstr = xmlDiscounts.read()
@@ -262,6 +503,6 @@ def sendMess(mess):
 
 
 if __name__ == '__main__':
-    log('upload', 'Start upload discounts.')
+    log('upload', 'Start 1c sync.')
     main()
-    log('upload', 'End upload discounts.\n')
+    log('upload', 'End sync.\n')
